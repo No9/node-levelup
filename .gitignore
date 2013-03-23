@@ -1,6 +1,17 @@
+<<<<<<< HEAD
 node_modules/
 build/
 libleveldb.so
 libleveldb.a
 test-data/
 _benchdb_*
+=======
+build_config.mk
+*.a
+*.o
+*.dylib*
+*.so
+*.so.*
+*_test
+db_bench
+>>>>>>> 514c943a8e9ce1b06c55ae5e47008f6b0854b36c
