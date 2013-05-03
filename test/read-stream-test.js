@@ -3,14 +3,16 @@
  * MIT +no-false-attribs License <https://github.com/rvagg/node-levelup/blob/master/LICENSE>
  */
 
-var buster     = require('buster')
-  , assert     = buster.assert
-  , levelup    = require('../lib/levelup.js')
+var levelup    = require('../lib/levelup.js')
   , common     = require('./common')
   , SlowStream = require('slow-stream')
   , delayed    = require('delayed')
   , rimraf     = require('rimraf')
   , async      = require('async')
+
+  , assert  = require('referee').assert
+  , refute  = require('referee').refute
+  , buster  = require('bustermove')
 
   , bigBlob    = Array.apply(null, Array(1024 * 100)).map(function () { return 'aaaaaaaaaa' }).join('')
 
@@ -133,7 +135,7 @@ buster.testCase('ReadStream', {
                 refute.isNull(call.args[0].key, 'ReadStream "data" event #' + i + ' argument has "key" property')
                 refute.isNull(call.args[0].value, 'ReadStream "data" event #' + i + ' argument has "value" property')
                 assert.equals(call.args[0].key, d.key, 'ReadStream "data" event #' + i + ' argument has correct "key"')
-                assert.equals(call.args[0].value, d.value, 'ReadStream "data" event #' + i + ' argument has correct "value"')
+                assert.equals(+call.args[0].value, +d.value, 'ReadStream "data" event #' + i + ' argument has correct "value"')
               }
             }.bind(this))
             done()
@@ -225,9 +227,6 @@ buster.testCase('ReadStream', {
         db.batch(this.sourceData.slice(), function (err) {
           refute(err)
 
-          //NOTE: this is similar to the above case but we're going backwards, the important caveat with
-          // reversable streams is that the start will always be the NEXT key if the actual key you specify
-          // doesn't exist, not the PREVIOUS (i.e. it skips ahead to find a start key)
           var rs = db.createReadStream({ start: '49.5', reverse: true })
           assert.isFalse(rs.writable)
           assert.isTrue(rs.readable)
@@ -238,7 +237,7 @@ buster.testCase('ReadStream', {
 
           // reverse & slice off the first 50 so verify() expects only the first 50 even though all 100 are in the db
           this.sourceData.reverse()
-          this.sourceData = this.sourceData.slice(49)
+          this.sourceData = this.sourceData.slice(50)
         }.bind(this))
       }.bind(this))
     }

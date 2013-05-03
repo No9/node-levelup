@@ -1,6 +1,8 @@
 LevelUP
 =======
 
+![LevelDB Logo](https://twimg0-a.akamaihd.net/profile_images/3360574989/92fc472928b444980408147e5e5db2fa_bigger.png)
+
 Fast & simple storage - a Node.js-style LevelDB wrapper
 -------------------------------------------------------
 
@@ -31,11 +33,12 @@ See also a list of <a href="https://github.com/rvagg/node-levelup/wiki/Modules">
 Tested & supported platforms
 ----------------------------
 
-  * **Linux** (including ARM platforms such as Raspberry Pi)
+  * **Linux** (including ARM platforms such as Raspberry Pi *and Kindle!*)
   * **Mac OS**
   * **Solaris** (SmartOS & Nodejitsu)
-
-**Windows** support is a work in progress; see [issue #5](https://github.com/rvagg/node-levelup/issues/5) if you would like to help on that front. 
+  * **Windows**
+    * Node 0.10 and above only, see [issue #5](https://github.com/rvagg/node-levelup/issues/5) for more info
+    * See installation instructions for *node-gyp* dependencies [here](https://github.com/TooTallNate/node-gyp#installation), you'll need these (free) components from Microsoft to compile and run any native Node add-on in Windows.
 
 <a name="basic"></a>
 Basic usage
@@ -81,6 +84,8 @@ db.put('name', 'LevelUP', function (err) {
   * <a href="#createKeyStream"><code>db.<b>createKeyStream()</b></code></a>
   * <a href="#createValueStream"><code>db.<b>createValueStream()</b></code></a>
   * <a href="#createWriteStream"><code>db.<b>createWriteStream()</b></code></a>
+  * <a href="#destroy"><code><b>levelup.destroy()</b></code></a>
+  * <a href="#repair"><code><b>levelup.repair()</b></code></a>
 
 
 --------------------------------------------------------
@@ -124,14 +129,14 @@ The `location` argument is available as a read-only property on the returned Lev
 
 * `'cacheSize'` *(number, default: `8 * 1024 * 1024`)*: The size (in bytes) of the in-memory [LRU](http://en.wikipedia.org/wiki/Cache_algorithms#Least_Recently_Used) cache with frequently used uncompressed block contents. 
 
-* `'encoding'` *(string, default: `'utf8'`)*: The encoding of the keys and values passed through Node.js' `Buffer` implementation (see [Buffer#toString()](http://nodejs.org/docs/latest/api/buffer.html#buffer_buf_tostring_encoding_start_end))
+* `'keyEncoding'` and `'valueEncoding'` *(string, default: `'utf8'`)*: The encoding of the keys and values passed through Node.js' `Buffer` implementation (see [Buffer#toString()](http://nodejs.org/docs/latest/api/buffer.html#buffer_buf_tostring_encoding_start_end)). You may also use `'encoding'` as an alias for `'valueEncoding'`.
   <p><code>'utf8'</code> is the default encoding for both keys and values so you can simply pass in strings and expect strings from your <code>get()</code> operations. You can also pass <code>Buffer</code> objects as keys and/or values and conversion will be performed.</p>
   <p>Supported encodings are: hex, utf8, ascii, binary, base64, ucs2, utf16le.</p>
   <p><code>'json'</code> encoding is also supported, see below.</p>
 
-* `'keyEncoding'` and `'valueEncoding'` *(string, default: `'utf8'`)*: use instead of `encoding` to specify the exact encoding of both the keys and the values in this database.
+* `'db'` *(object, default: LevelDOWN)*: LevelUP is backed by [LevelDOWN](https://github.com/rvagg/node-leveldown/) to provide an interface to LevelDB. You can completely replace the use of LevelDOWN by providing a "factory" function that will return a LevelDOWN API compatible object given a `location` argument. For further information, see [MemDOWN](https://github.com/rvagg/node-memdown/), a fully LevelDOWN API compatible replacement that uses a memory store rather than LevelDB. Also see [Abstract LevelDOWN](http://github.com/rvagg/node-abstract-leveldown), a partial implementation of the LevelDOWN API that can be used as a base prototype for a LevelDOWN substitute.
 
-Additionally, each of the main interface methods accept an optional options object that can be used to override `encoding` (or `keyEncoding` & `valueEncoding`).
+Additionally, each of the main interface methods accept an optional options object that can be used to override `'keyEncoding'` and `'valueEncoding'`.
 
 --------------------------------------------------------
 <a name="open"></a>
@@ -156,7 +161,7 @@ The callback argument is optional but if you don't provide one and an error occu
 
 #### `options`
 
-Encoding of the `key` and `value` objects will adhere to `encoding` option(s) provided to <a href="#ctor"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `put()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).
+Encoding of the `key` and `value` objects will adhere to `'keyEncoding'` and `'valueEncoding'` options provided to <a href="#ctor"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `put()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).
 
 If you provide a `'sync'` value of `true` in your `options` object, LevelDB will perform a synchronous write of the data; although the operation will be asynchronous as far as Node is concerned. Normally, LevelDB passes the data to the operating system for writing and returns immediately, however a synchronous write will use `fsync()` or equivalent so your callback won't be triggered until the data is actually on disk. Synchronous filesystem writes are **significantly** slower than asynchronous writes but if you want to be absolutely sure that the data is flushed then you can use `'sync': true`.
 
@@ -167,25 +172,25 @@ If you provide a `'sync'` value of `true` in your `options` object, LevelDB will
 
 #### `options`
 
-Encoding of the `key` objects will adhere to `encoding` option(s) provided to <a href="#ctor"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `get()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).
+Encoding of the `key` object will adhere to the `'keyEncoding'` option provided to <a href="#ctor"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `get()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).
 
 LevelDB will by default fill the in-memory LRU Cache with data from a call to get. Disabling this is done by setting `fillCache` to `false`. 
 
 --------------------------------------------------------
 <a name="del"></a>
 ### db.del(key[, options][, callback])
-<code>del()</code> is the primary method for removing data from the store. The `key` can be an arbitrary data object but if it doesn't exist in the store then the callback will receive an error as its first argument.
+<code>del()</code> is the primary method for removing data from the store.
 
 #### `options`
 
-Encoding of the `key` objects will adhere to `encoding` option(s) provided to <a href="#ctor"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `del()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).
+Encoding of the `key` object will adhere to the `'keyEncoding'` option provided to <a href="#ctor"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `del()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).
 
 A `'sync'` option can also be passed, see <a href="#put"><code>put()</code></a> for details on how this works.
 
 --------------------------------------------------------
 <a name="batch"></a>
 ### db.batch(array[, options][, callback])
-<code>batch()</code> can be used for very fast bulk-write operations (both *put* and *delete*). The `array` argument should contain a list of operations to be executed sequentially. Each operation is contained in an object having the following properties: `type`, `key`, `value`, where the *type* is either `'put'` or `'del'`. In the case of `'del'` the `'value'` property is ignored.
+<code>batch()</code> can be used for very fast bulk-write operations (both *put* and *delete*). The `array` argument should contain a list of operations to be executed sequentially, although as a whole they are performed as an atomic operation inside LevelDB. Each operation is contained in an object having the following properties: `type`, `key`, `value`, where the *type* is either `'put'` or `'del'`. In the case of `'del'` the `'value'` property is ignored. Any entries with a `'key'` of `null` or `undefined` will cause an error to be returned on the `callback` and any `'type': 'put'` entry with a `'value'` of `null` or `undefined` will return an error.
 
 ```js
 var ops = [
@@ -205,7 +210,7 @@ db.batch(ops, function (err) {
 
 #### `options`
 
-See <a href="#put"><code>put()</code></a> for a discussion on the `options` object. You can overwrite default `key` and `value` encodings and also specify the use of `sync` filesystem operations.
+See <a href="#put"><code>put()</code></a> for a discussion on the `options` object. You can overwrite default `'keyEncoding'` and `'valueEncoding'` and also specify the use of `sync` filesystem operations.
 
 --------------------------------------------------------
 <a name='approximateSize'></a>
@@ -358,7 +363,26 @@ function copy (srcdb, dstdb, callback) {
 
 The ReadStream is also [fstream](https://github.com/isaacs/fstream)-compatible which means you should be able to pipe to and from fstreams. So you can serialize and deserialize an entire database to a directory where keys are filenames and values are their contents, or even into a *tar* file using [node-tar](https://github.com/isaacs/node-tar). See the [fstream functional test](https://github.com/rvagg/node-levelup/blob/master/test/functional/fstream-test.js) for an example. *(Note: I'm not really sure there's a great use-case for this but it's a fun example and it helps to harden the stream implementations.)*
 
-KeyStreams and ValueStreams can be treated like standard streams of raw data. If `'encoding'` is set to `'binary'` the `'data'` events will simply be standard Node `Buffer` objects straight out of the data store.
+KeyStreams and ValueStreams can be treated like standard streams of raw data. If `'keyEncoding'` or `'valueEncoding'` is set to `'binary'` the `'data'` events will simply be standard Node `Buffer` objects straight out of the data store.
+
+--------------------------------------------------------
+<a name="destroy"></a>
+### levelup.destroy(location[, callback])
+<code>destroy()</code> is used to completely remove an existing LevelDB database directory. You can use this function in place of a full directory *rm* if you want to be sure to only remove LevelDB-related files. If the directory only contains LevelDB files, the directory itself will be removed as well. If there are additional, non-LevelDB files in the directory, those files, and the directory, will be left alone.
+
+The optional callback will be called when the destroy operation is complete, with a possible `error` argument.
+
+<a name="repair"></a>
+### levelup.repair(location[, callback])
+<code>repair()</code> can be used to attempt a restoration of a damaged LevelDB store. From the LevelDB documentation:
+
+> If a DB cannot be opened, you may attempt to call this method to resurrect as much of the contents of the database as possible. Some data may be lost, so be careful when calling this function on a database that contains important information.
+
+You will find information on the *repair* operation in the *LOG* file inside the store directory. 
+
+A `repair()` can also be used to perform a compaction of the LevelDB log into table files.
+
+The optional callback will be called when the repair operation is complete, with a possible `error` argument.
 
 <a name="events"></a>
 Events
@@ -412,7 +436,14 @@ LevelUP is only possible due to the excellent work of the following contributors
 <tr><th align="left">David Björklund</th><td><a href="https://github.com/kesla">GitHub/kesla</a></td><td><a href="http://twitter.com/david_bjorklund">Twitter/@david_bjorklund</a></td></tr>
 <tr><th align="left">Julian Gruber</th><td><a href="https://github.com/juliangruber">GitHub/juliangruber</a></td><td><a href="http://twitter.com/juliangruber">Twitter/@juliangruber</a></td></tr>
 <tr><th align="left">Paolo Fragomeni</th><td><a href="https://github.com/hij1nx">GitHub/hij1nx</a></td><td><a href="http://twitter.com/hij1nx">Twitter/@hij1nx</a></td></tr>
+<tr><th align="left">Anton Whalley</th><td><a href="https://github.com/No9">GitHub/No9</a></td><td><a href="https://twitter.com/antonwhalley">Twitter/@antonwhalley</a></td></tr>
+<tr><th align="left">Matteo Collina</th><td><a href="https://github.com/mcollina">GitHub/mcollina</a></td><td><a href="https://twitter.com/matteocollina">Twitter/@matteocollina</a></td></tr>
 </tbody></table>
+
+### Windows
+
+A large portion of the Windows support comes from code by [Krzysztof Kowalczyk](http://blog.kowalczyk.info/) [@kjk](https://twitter.com/kjk), see his Windows LevelDB port [here](http://code.google.com/r/kkowalczyk-leveldb/). If you're using LevelUP on Windows, you should give him your thanks!
+
 
 <a name="licence"></a>
 Licence &amp; copyright
